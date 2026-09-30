@@ -11,6 +11,7 @@ import re
 from collections import namedtuple
 
 
+
 DATA_FOLDER = 'data'
 ORIGINAL_DATA_FOLDER = 'original'
 PAIRS_DATA_FOLDER = 'pairs'
@@ -22,7 +23,7 @@ DEV_PAIRED_FILE_NAME = 'dev_paired_data.csv'
 
 MIN_FUNNY_THRESHOLD = 1.2 # minimal mean funniness score (meanGrade) for texts to select from the original dataset
 
-DO_PAIRS = True # TRUE = each text from the original dataset will be transformed to pair <original text>, <edited text> with all the other fields remaining 
+DO_PAIRS = False # TRUE = each text from the original dataset will be transformed to pair <original text>, <edited text> with all the other fields remaining 
 DO_TRANSFORM_PAIRS = True
 
 
@@ -152,6 +153,32 @@ def get_dev_pairs_data():
     print(f'Total count of rows in processed dev data: {len(df_paired_dev)}')
     print(f'Count of no-marking rows in old dev data: {no_marking_count}')
     save_data(df_paired_dev, os.path.join(DATA_FOLDER, PAIRS_DATA_FOLDER, DEV_PAIRED_FILE_NAME))
+
+
+
+def get_prepared_data(file_name, mode):
+    file_path = os.path.join(DATA_FOLDER, PAIRS_DATA_FOLDER, file_name)
+    df = pd.read_csv(file_path)
+    
+    positive_instances = pd.DataFrame({
+        "text": df['humorous'],
+        "label": 1  # pandas broadcasting gonna work and make this unique label for all the texts 
+    })
+    
+    negative_instances = pd.DataFrame({
+        "text": df["original"],
+        "label": 0
+    })
+    
+    final_df = pd.concat([positive_instances, negative_instances], ignore_index = True, axis = 0)
+    final_df = final_df.sample(frac = 1, random_state = 42).reset_index(drop = True)
+    save_path = os.path.join(DATA_FOLDER, PREPARED_DATA_FOLDER, f'{mode}_prepared.csv')
+    
+    save_data(final_df, save_path)
+    
+    
+    
+    
         
     
 
@@ -161,7 +188,9 @@ def main():
         get_train_pairs_data()
         get_dev_pairs_data()
     if DO_TRANSFORM_PAIRS:
-        file_path = os.path.join(DATA_FOLDER, PAIRS_DATA_FOLDER, TRAIN_PAIRED_FILE_NAME)
+        get_prepared_data(TRAIN_PAIRED_FILE_NAME, 'train')
+        get_prepared_data(DEV_PAIRED_FILE_NAME, 'dev')
+
         
     
     
