@@ -37,7 +37,7 @@ def get_text_pairs_data(df: pd.DataFrame) -> pd.DataFrame:
     df_selected = df[ df['meanGrade'] >= 1.2]
     print(df_selected.head(20))
     
-    ids, original_texts, humorous_texts, edit_words, grades, mean_grades = [], [], [], [], [], []
+    ids, original_texts, humorous_texts, original_words, edit_words, grades, mean_grades = [], [], [], [], [], [], []
     no_marking_count = 0 # count of rows with no marking
     for row in df_selected.itertuples(index = False):
         if not check_grades(str(row.grades)):
@@ -53,6 +53,7 @@ def get_text_pairs_data(df: pd.DataFrame) -> pd.DataFrame:
         ids.append(row.id)
         original_texts.append(text.replace(marked, word, 1))
         humorous_texts.append(text.replace(marked, row.edit, 1))
+        original_words.append(word)
         edit_words.append(row.edit)
         grades.append(row.grades)
         mean_grades.append(row.meanGrade)
@@ -62,7 +63,8 @@ def get_text_pairs_data(df: pd.DataFrame) -> pd.DataFrame:
             "id": ids,
             "original": original_texts,
             "humorous": humorous_texts,
-            "edit": edit_words,
+            "word_to_edit": original_words,
+            "changed_word": edit_words,
             "grades": grades,
             "meanGrade": mean_grades
         }
