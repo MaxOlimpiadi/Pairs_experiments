@@ -58,7 +58,7 @@ def get_pair_data_instance(row: namedtuple) -> tuple[str, str, str]:
     text = row.original
     match_container = re.search(r"<([^<>]*?)/>", row.original)
     if match_container is None:
-        return None, None, None
+        return '', '', '' #marking was not found
     marked = match_container.group(0)
     word_original = match_container.group(1)
     original_text = text.replace(marked, word_original, 1)
@@ -235,8 +235,8 @@ def create_training_slice(samples_by_class, size, random_state):
 
 def create_splits(train_df, test_dev_df):
     
-    train_texts = train_df['text']
-    train_labels = train_df['label']
+    global_train_texts = train_df['text']
+    global_train_labels = train_df['label']
     
     dev_texts, test_texts, dev_labels, test_labels = train_test_split(
         test_dev_df['text'], 
@@ -250,7 +250,7 @@ def create_splits(train_df, test_dev_df):
     
     for seed in RANDOM_SEEDS:
         seed_folder_path = os.path.join(TRAIN_SLICES_FOLDER_PATH, f'Seed_{seed}')
-        samples_by_class = get_samples_by_class(train_texts, train_labels, seed)
+        samples_by_class = get_samples_by_class(global_train_texts, global_train_labels, seed)
         for size in TRAIN_SPLIT_SIZES:
             train_texts, train_labels = create_training_slice(samples_by_class, size, seed)
             save_split(train_texts, train_labels, seed_folder_path, f'train_{size}.csv')
