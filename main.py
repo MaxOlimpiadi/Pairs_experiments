@@ -5,7 +5,6 @@ Created on Tue Sep 29 14:36:44 2026
 @author: MAKSIM
 """
 
-import pandas as pd
 import os
 from sentence_transformers import SentenceTransformer
 
@@ -43,10 +42,10 @@ def main():
         test_dev_df = load_data(os.path.join(DATA_FOLDER, PREPARED_DATA_FOLDER, DEV_PREPARED_FILE_NAME))
         create_splits(train_df, test_dev_df)
 
-    # embedding_model = SentenceTransformer(ENCODING_MODEL)
-    # do_svm_experiments('embeddings', embedding_model)
-    # do_svm_experiments('tf-idf')
-    # do_transformer_experiments()  
+    embedding_model = SentenceTransformer(ENCODING_MODEL)
+    do_svm_experiments('embeddings', embedding_model)
+    do_svm_experiments('tf-idf')
+    do_transformer_experiments()  
         
     
 
