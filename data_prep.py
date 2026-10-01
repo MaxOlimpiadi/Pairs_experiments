@@ -2,6 +2,8 @@ import os
 import pandas as pd
 import re
 from collections import namedtuple
+from sklearn.model_selection import train_test_split
+import random
 
 from config import (
     DATA_FOLDER, 
@@ -13,7 +15,15 @@ from config import (
     MIN_FUNNY_THRESHOLD,
     TRAIN_PAIRED_FILE_NAME,
     DEV_PAIRED_FILE_NAME,
+    RANDOM_SEEDS,
+    TRAIN_SLICES_FOLDER_PATH,
+    TRAIN_SPLIT_SIZES,
+    SPLIT_FOLDER_PATH,
+    VAL_SPLIT_FILE,
+    TEST_SPLIT_FILE,  
 )
+
+
 
 
 def create_folders():
@@ -42,7 +52,6 @@ def check_grades(grades: str):
         return False
     else: 
         return True
-
 
 
 def get_pair_data_instance(row: namedtuple) -> tuple[str, str, str]:
@@ -107,8 +116,6 @@ def get_train_pairs_data():
     save_data(df_paired_train, os.path.join(DATA_FOLDER, PAIRS_DATA_FOLDER, TRAIN_PAIRED_FILE_NAME))
         
 
-
-
 def get_dev_pairs_data():
     file_path = os.path.join(DATA_FOLDER, ORIGINAL_DATA_FOLDER, DEV_FILE_NAME)
     df = load_data(file_path)
@@ -164,3 +171,103 @@ def get_prepared_data(file_name, mode) -> pd.DataFrame:
     save_data(final_df, save_path)
     
     return final_df
+
+
+
+# getting a convinient structure of global train data for further slicing:
+def get_samples_by_class(global_train_texts, global_train_labels, random_state):
+    samples_by_class = {
+        "positive": [],
+        "negative": []
+    }
+    for t, l in zip(global_train_texts, global_train_labels):
+        if l == 1:
+            samples_by_class["positive"].append((t, l))
+        elif l == 0:
+            samples_by_class["negative"].append((t,l))  
+        else: 
+            raise ValueError(f"Unexpected label: {l}")
+    
+    # shuffle, taking care not to alter the global random state:
+    rng = random.Random(random_state)
+    rng.shuffle(samples_by_class["positive"])
+    rng.shuffle(samples_by_class["negative"])
+    
+    return samples_by_class
+
+
+
+def create_training_slice(samples_by_class, size, random_state):
+    n_positive = size // 2
+    n_negative = size - n_positive
+
+    # Ensure there are enough samples of each class for the requested slice size:
+    if len(samples_by_class["positive"]) < n_positive:
+        raise ValueError(
+            f"Not enough positive samples: "
+            f"requested {n_positive}, "
+            f"available {len(samples_by_class['positive'])}"
+        )
+    if len(samples_by_class["negative"]) < n_negative:
+        raise ValueError(
+            f"Not enough negative samples: "
+            f"requested {n_negative}, "
+            f"available {len(samples_by_class['negative'])}"
+        )
+    
+    positive_slice_tuples = samples_by_class["positive"][:n_positive]
+    negative_slice_tuples = samples_by_class["negative"][:n_negative]
+    
+    current_data = positive_slice_tuples + negative_slice_tuples
+
+    rng = random.Random(random_state)
+    rng.shuffle(current_data)
+    
+    split_texts = []
+    split_labels = []
+    for t, l in current_data:
+        split_texts.append(t)
+        split_labels.append(l)
+            
+    return split_texts, split_labels
+
+
+
+def create_splits(train_df, test_dev_df):
+    
+    train_texts = train_df['text']
+    train_labels = train_df['label']
+    
+    dev_texts, test_texts, dev_labels, test_labels = train_test_split(
+        test_dev_df['text'], 
+        test_dev_df['label'],
+        test_size = 0.5,
+        shuffle = True,
+        random_state = 42,
+        stratify = test_dev_df['label']
+    )
+    
+    
+    for seed in RANDOM_SEEDS:
+        seed_folder_path = os.path.join(TRAIN_SLICES_FOLDER_PATH, f'Seed_{seed}')
+        samples_by_class = get_samples_by_class(train_texts, train_labels, seed)
+        for size in TRAIN_SPLIT_SIZES:
+            train_texts, train_labels = create_training_slice(samples_by_class, size, seed)
+            save_split(train_texts, train_labels, seed_folder_path, f'train_{size}.csv')
+
+    save_split(dev_texts, dev_labels, SPLIT_FOLDER_PATH, VAL_SPLIT_FILE)
+    save_split(test_texts, test_labels, SPLIT_FOLDER_PATH, TEST_SPLIT_FILE)
+    
+  
+def save_split(texts, labels, folder_path, filename):
+    os.makedirs(folder_path, exist_ok=True) # if the folder doesn`t exist, it will be created`
+    df = pd.DataFrame(
+        {
+            'text': texts,
+            'label': labels
+        }    
+    )
+    full_path = os.path.join(folder_path, filename)
+    df.to_csv(full_path, index = False)
+
+
