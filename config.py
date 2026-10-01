@@ -48,9 +48,9 @@ RANDOM_SEEDS = (7, 10, 35)
 MIN_FUNNY_THRESHOLD = 1.2 # minimal mean funniness score (meanGrade) for texts to select from the original dataset
 
 # Flags:
-DO_PAIRS = False # if true then each text from the original dataset will be transformed to pair <original text>, <edited text> with all the other fields remaining 
-DO_TRANSFORM_PAIRS = False  # if ture then the paired data will be transofrmed to well-known classification format: <text>, <label>
-CREATE_SPLITS = False  # If you need to split the dataset into train, validation, and test sets. Otherwise, we load all three parts directly from the corresponding files.
+DO_PAIRS = True # if true then each text from the original dataset will be transformed to pair <original text>, <edited text> with all the other fields remaining 
+DO_TRANSFORM_PAIRS = True  # if ture then the paired data will be transofrmed to well-known classification format: <text>, <label>
+CREATE_SPLITS = True  # If you need to split the dataset into train, validation, and test sets. Otherwise, we load all three parts directly from the corresponding files.
 DELETE_OLD_REPORT = True  # if you need to delete the old log file before running experiments
 
 

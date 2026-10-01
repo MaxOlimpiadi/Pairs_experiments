@@ -33,8 +33,8 @@ def main():
         get_train_pairs_data()
         get_dev_pairs_data()
     if DO_TRANSFORM_PAIRS:
-        get_prepared_data(TRAIN_PAIRED_FILE_NAME, 'train')
-        get_prepared_data(DEV_PAIRED_FILE_NAME, 'dev')
+        train_df = get_prepared_data(TRAIN_PAIRED_FILE_NAME, 'train')
+        test_dev_df = get_prepared_data(DEV_PAIRED_FILE_NAME, 'dev')
     if DELETE_OLD_REPORT and os.path.exists(LOG_FILE_NAME): # delete the entire log before a new series of experiments
         os.remove(LOG_FILE_NAME) 
     if CREATE_SPLITS:
@@ -42,10 +42,10 @@ def main():
         test_dev_df = load_data(os.path.join(DATA_FOLDER, PREPARED_DATA_FOLDER, DEV_PREPARED_FILE_NAME))
         create_splits(train_df, test_dev_df)
 
-    embedding_model = SentenceTransformer(ENCODING_MODEL)
-    do_svm_experiments('embeddings', embedding_model)
-    do_svm_experiments('tf-idf')
-    do_transformer_experiments()  
+    # embedding_model = SentenceTransformer(ENCODING_MODEL)
+    # do_svm_experiments('embeddings', embedding_model)
+    # do_svm_experiments('tf-idf')
+    # do_transformer_experiments()  
         
     
 
