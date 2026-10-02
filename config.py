@@ -9,16 +9,17 @@ PREPARED_DATA_FOLDER = 'prepared'
 TRAIN_FILE_NAME = 'train.csv'
 DEV_FILE_NAME = 'dev.csv'
 TRAIN_PAIRED_FILE_NAME = 'train_paired_data.csv'
-DEV_PAIRED_FILE_NAME = 'dev_paired_data.csv'
+DEV_TEST_PAIRED_FILE_NAME = 'dev_paired_data.csv'
 TRAIN_PREPARED_FILE_NAME = 'train_prepared.csv'
 DEV_PREPARED_FILE_NAME = 'dev_prepared.csv'
+TEST_PREPARED_FILE_NAME = 'test_prepared.csv'
 LOG_FILE_NAME = "experiments_log.csv"
 
 # Splits:
 SPLIT_FOLDER_PATH = 'split'
 TRAIN_SLICES_FOLDER_PATH = os.path.join(SPLIT_FOLDER_PATH, 'train_slices')
 TRAIN_SPLIT_FILE = 'train.csv'
-VAL_SPLIT_FILE = 'val.csv'
+DEV_SPLIT_FILE = 'dev.csv'
 TEST_SPLIT_FILE = 'test.csv'
 
 # Test prediction results:
@@ -41,7 +42,7 @@ GAMMA = 'scale'
 MAX_FEATURES = 1000
 
 # Experiment:
-TRAIN_SPLIT_SIZES = (25, 50, 100, 200, 300, 500, 700, 900, 1100)
+TRAIN_SPLIT_SIZES = (25, 50, 100, 200, 300, 500, 700, 900, 1100, 1300, 1500, 1750, 2000)
 RANDOM_SEEDS = (7, 10, 35)
 
 # Min MeanGrade:

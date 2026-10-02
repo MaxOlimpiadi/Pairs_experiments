@@ -18,7 +18,7 @@ import matplotlib.pyplot as plt
 from config import (
     TRAIN_SLICES_FOLDER_PATH,
     SPLIT_FOLDER_PATH,
-    VAL_SPLIT_FILE,
+    DEV_SPLIT_FILE,
     TEST_SPLIT_FILE, 
     MAX_LENGTH,
     BATCH_SIZE,
@@ -65,7 +65,7 @@ def load_split(file_path):
 def prepare_data(tokenizer, train_slice_file_path):
     
     train_texts, train_labels = load_split(train_slice_file_path)
-    val_texts, val_labels = load_split(os.path.join(SPLIT_FOLDER_PATH, VAL_SPLIT_FILE))
+    val_texts, val_labels = load_split(os.path.join(SPLIT_FOLDER_PATH, DEV_SPLIT_FILE))
     test_texts, test_labels = load_split(os.path.join(SPLIT_FOLDER_PATH, TEST_SPLIT_FILE))
     
     train_encodings = tokenizer(list(train_texts), truncation=True, padding=True, max_length = MAX_LENGTH)
@@ -152,6 +152,7 @@ def train_model(model, optimizer, train_loader, val_dataloader, device):
 def validate_model(model, val_dataloader, device):
     model.eval()
     total_loss = 0
+    total_examples = 0
     
     with torch.no_grad():
         for batch in val_dataloader:
@@ -159,10 +160,13 @@ def validate_model(model, val_dataloader, device):
                 key: val.to(device)
                 for key, val in batch.items()
             }
+            cur_size_batch = len(batch["labels"])
+            
             outputs = model(**batch)
-            total_loss += outputs.loss.item()
+            total_loss += outputs.loss.item() * cur_size_batch
+            total_examples += cur_size_batch
 
-    avg_loss = total_loss / len(val_dataloader)
+    avg_loss = total_loss / total_examples
 
     return avg_loss
 

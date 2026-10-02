@@ -14,13 +14,17 @@ from config import (
     DEV_FILE_NAME,
     MIN_FUNNY_THRESHOLD,
     TRAIN_PAIRED_FILE_NAME,
-    DEV_PAIRED_FILE_NAME,
+    DEV_TEST_PAIRED_FILE_NAME,
     RANDOM_SEEDS,
     TRAIN_SLICES_FOLDER_PATH,
     TRAIN_SPLIT_SIZES,
     SPLIT_FOLDER_PATH,
-    VAL_SPLIT_FILE,
-    TEST_SPLIT_FILE,  
+    DEV_SPLIT_FILE,
+    TEST_SPLIT_FILE, 
+    TRAIN_PREPARED_FILE_NAME,
+    DEV_PREPARED_FILE_NAME,
+    TEST_PREPARED_FILE_NAME,
+    
 )
 
 
@@ -54,7 +58,7 @@ def check_grades(grades: str):
         return True
 
 
-def get_pair_data_instance(row: namedtuple) -> tuple[str, str, str]:
+def get_pair_data_instance(row) -> tuple[str, str, str]:
     text = row.original
     match_container = re.search(r"<([^<>]*?)/>", row.original)
     if match_container is None:
@@ -146,11 +150,49 @@ def get_dev_pairs_data():
     print(f'Total count of rows in old dev data: {len(df)}')
     print(f'Total count of rows in processed dev data: {len(df_paired_dev)}')
     print(f'Count of no-marking rows in old dev data: {no_marking_count}')
-    save_data(df_paired_dev, os.path.join(DATA_FOLDER, PAIRS_DATA_FOLDER, DEV_PAIRED_FILE_NAME))
+    save_data(df_paired_dev, os.path.join(DATA_FOLDER, PAIRS_DATA_FOLDER, DEV_TEST_PAIRED_FILE_NAME))
 
 
 
-def get_prepared_data(file_name, mode) -> pd.DataFrame:
+
+def pairs_to_classification(df_pairs) -> pd.DataFrame:
+    #preparing data for forming final dataframe:
+    positive_instances = pd.DataFrame({
+        "text": df_pairs['humorous'].unique(),
+        "label": 1  # pandas broadcasting gonna work and assign label 1 to every row 
+    })
+    
+    negative_instances = pd.DataFrame({
+        "text": df_pairs["original"].unique(),
+        "label": 0
+    })
+    
+    # combined final dataframe:
+    result_df = (
+        pd.concat([positive_instances, negative_instances], ignore_index = True, axis = 0)
+    )
+    
+    #shuffle:
+    result_df = result_df.sample(frac = 1, random_state = 42).reset_index(drop = True)
+    
+    print(f'\n\t\t{len(positive_instances)} positive and {len(negative_instances)} negative')
+    
+    return result_df
+    
+    
+def prepare_train_data(file_name):
+    file_path = os.path.join(DATA_FOLDER, PAIRS_DATA_FOLDER, file_name)
+    df_pairs = load_data(file_path) 
+    print('\n Train subset:')
+    train_df = pairs_to_classification(df_pairs)
+    
+    save_data(train_df, os.path.join(DATA_FOLDER, PREPARED_DATA_FOLDER, TRAIN_PREPARED_FILE_NAME))
+    
+    return train_df
+    
+    
+
+def prepare_dev_test_data(file_name) -> tuple[pd.DataFrame, pd.DataFrame]:
     file_path = os.path.join(DATA_FOLDER, PAIRS_DATA_FOLDER, file_name)
     df = load_data(file_path)
     
@@ -166,27 +208,16 @@ def get_prepared_data(file_name, mode) -> pd.DataFrame:
     df_dev = df[ df['original'].isin(dev_originals) ]
     
     df_test = df[ df['original'].isin(test_originals) ]
+      
+    print('\n Dev subset:')
+    final_dev_df = pairs_to_classification(df_dev)
+    print('\n Test subset:')
+    final_test_df = pairs_to_classification(df_test)
+
+    save_data(final_dev_df, os.path.join(DATA_FOLDER, PREPARED_DATA_FOLDER, DEV_PREPARED_FILE_NAME))
+    save_data(final_test_df, os.path.join(DATA_FOLDER, PREPARED_DATA_FOLDER, TEST_PREPARED_FILE_NAME))
     
-    
-    
-    
-    dev_positive_instances = pd.DataFrame({
-        "text": df_dev['humorous'],
-        "label": 1  # pandas broadcasting gonna work and assign label 1 to every row 
-    })
-    
-    dev_negative_instances = pd.DataFrame({
-        "text": df_dev["original"].unique(),
-        "label": 0
-    })
-    
-    final_df = pd.concat([positive_instances, negative_instances], ignore_index = True, axis = 0)
-    final_df = final_df.sample(frac = 1, random_state = 42).reset_index(drop = True)
-    save_path = os.path.join(DATA_FOLDER, PREPARED_DATA_FOLDER, f'{mode}_prepared.csv')
-    
-    save_data(final_df, save_path)
-    
-    return final_df
+    return final_dev_df, final_test_df
 
 
 
@@ -249,21 +280,18 @@ def create_training_slice(samples_by_class, size, random_state):
 
 
 
-def create_splits(train_df, test_dev_df):
+def create_splits(train_df, dev_df, test_df):
     
     global_train_texts = train_df['text']
     global_train_labels = train_df['label']
     
-    dev_texts, test_texts, dev_labels, test_labels = train_test_split(
-        test_dev_df['text'], 
-        test_dev_df['label'],
-        test_size = 0.5,
-        shuffle = True,
-        random_state = 42,
-        stratify = test_dev_df['label']
-    )
+    dev_texts = dev_df['text']
+    dev_labels = dev_df['label']
     
+    test_texts = test_df['text']
+    test_labels = test_df['label']
     
+     
     for seed in RANDOM_SEEDS:
         seed_folder_path = os.path.join(TRAIN_SLICES_FOLDER_PATH, f'Seed_{seed}')
         samples_by_class = get_samples_by_class(global_train_texts, global_train_labels, seed)
@@ -271,7 +299,7 @@ def create_splits(train_df, test_dev_df):
             train_texts, train_labels = create_training_slice(samples_by_class, size, seed)
             save_split(train_texts, train_labels, seed_folder_path, f'train_{size}.csv')
 
-    save_split(dev_texts, dev_labels, SPLIT_FOLDER_PATH, VAL_SPLIT_FILE)
+    save_split(dev_texts, dev_labels, SPLIT_FOLDER_PATH, DEV_SPLIT_FILE)
     save_split(test_texts, test_labels, SPLIT_FOLDER_PATH, TEST_SPLIT_FILE)
    
     
