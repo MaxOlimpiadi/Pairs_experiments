@@ -154,13 +154,29 @@ def get_prepared_data(file_name, mode) -> pd.DataFrame:
     file_path = os.path.join(DATA_FOLDER, PAIRS_DATA_FOLDER, file_name)
     df = load_data(file_path)
     
-    positive_instances = pd.DataFrame({
-        "text": df['humorous'],
-        "label": 1  # pandas broadcasting gonna work and make this unique label for all the texts 
+    all_originals = df['original'].unique()
+    
+    # spliting original texts equally into dev and test:
+    dev_originals, test_originals = train_test_split(
+        all_originals,
+        test_size = 0.5,
+        random_state = 42
+    )
+    
+    df_dev = df[ df['original'].isin(dev_originals) ]
+    
+    df_test = df[ df['original'].isin(test_originals) ]
+    
+    
+    
+    
+    dev_positive_instances = pd.DataFrame({
+        "text": df_dev['humorous'],
+        "label": 1  # pandas broadcasting gonna work and assign label 1 to every row 
     })
     
-    negative_instances = pd.DataFrame({
-        "text": df["original"],
+    dev_negative_instances = pd.DataFrame({
+        "text": df_dev["original"].unique(),
         "label": 0
     })
     
