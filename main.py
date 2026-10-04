@@ -21,11 +21,11 @@ from config import (
     DELETE_OLD_REPORT,
     LOG_FILE_NAME,
     CREATE_SPLITS,
-    ENCODING_MODEL 
+    ENCODING_MODEL, 
 )
 
 from data_prep import create_folders, get_train_pairs_data, get_dev_pairs_data, prepare_train_data, prepare_dev_test_data, load_data, create_splits
-from experiments import do_svm_experiments, do_transformer_experiments
+from experiments import do_svm_experiments, do_transformer_experiments, do_full_transformer_experiments
     
 
 def main():
@@ -48,6 +48,7 @@ def main():
     do_svm_experiments('embeddings', embedding_model)
     do_svm_experiments('tf-idf')
     do_transformer_experiments()  
+    #do_full_transformer_experiments()
         
     
 

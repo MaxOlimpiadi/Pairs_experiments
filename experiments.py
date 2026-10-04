@@ -33,8 +33,9 @@ from config import (
     C,
     GAMMA,
     MAX_FEATURES,
-
-    
+    PREPARED_DATA_FOLDER,
+    DATA_FOLDER, 
+    TRAIN_PREPARED_FILE_NAME,
 )
 
 
@@ -520,6 +521,41 @@ def do_transformer_experiments():
     plot_metrics(LOG_FILE_NAME, MODEL_NAME, 'bert_plot.png')
 
 
+
+def do_full_transformer_experiments():
+
+    tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
+    device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
+    train_file_path = os.path.join(DATA_FOLDER, PREPARED_DATA_FOLDER, TRAIN_PREPARED_FILE_NAME)
+    
+    print(f"\n\tProcessing the full training subset: {train_file_path}\n")
+    model, optimizer = create_model() # # Important: initialize a fresh model for each train split
+    model.to(device)
+
+    train_dataset, val_dataset, test_dataset = prepare_data(tokenizer, train_file_path)
+    train_dataloader, val_dataloader, test_dataloader = create_dataloaders(train_dataset, val_dataset, test_dataset)
+    
+    train_model(model, optimizer, train_dataloader, val_dataloader, device)
+    checkpoint = torch.load(SAVE_BEST_PATH)
+    model.load_state_dict(checkpoint["model_state_dict"])
+
+    report_dict = evaluate_model(model, test_dataloader, tokenizer, device)
+    print(report_dict)
+    log_experiment(
+        dataset_name = 'SemEval_2020_Task_7_edits',
+        seed_folder_name = 'none',
+        train_slice = 'FULL TRAINING', 
+        size = len(train_dataset), 
+        model_name = MODEL_NAME, 
+        lr = LEARNING_RATE, 
+        batch_size = BATCH_SIZE, 
+        kernel = '-', 
+        c = '-', 
+        gamma = '-', 
+        metrics_dict = report_dict, 
+    )   
+
+    plot_metrics(LOG_FILE_NAME, MODEL_NAME, 'full_trained_bert_plot.png')
 
 
 
