@@ -44,6 +44,7 @@ MAX_FEATURES = 1000
 # Experiment:
 TRAIN_SPLIT_SIZES = (25, 50, 100, 200, 300, 500, 700, 900, 1100, 1300, 1500, 1750, 2000)
 RANDOM_SEEDS = (7, 10, 35)
+REDUCTION_SIZES = (8, 12, 16) # for PCA and TruncatedSVD
 
 # Min MeanGrade:
 MIN_FUNNY_THRESHOLD = 1.2 # minimal mean funniness score (meanGrade) for texts to select from the original dataset

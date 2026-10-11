@@ -14,6 +14,7 @@ from sklearn.pipeline import Pipeline
 from sklearn.feature_extraction.text import TfidfVectorizer
 from datetime import datetime
 import matplotlib.pyplot as plt
+from sklearn.decomposition import PCA, TruncatedSVD
 
 from config import (
     TRAIN_SLICES_FOLDER_PATH,
@@ -273,6 +274,7 @@ def log_experiment(
         kernel, 
         c, 
         gamma, 
+        reduction_n_components, # for PCA (if available)
         metrics_dict, 
         log_filename = LOG_FILE_NAME
 ):
@@ -288,6 +290,7 @@ def log_experiment(
         "kernel": kernel,
         "c": c,
         "gamma": gamma,
+        "reduction_components": reduction_n_components,
         **metrics_dict # unpack TP, FP, F1 end so on.
     }
     
@@ -298,11 +301,17 @@ def log_experiment(
     df.to_csv(log_filename, mode='a', index=False, header=header)
 
 
-def plot_metrics(log_file_name, model_name_to_consider, plot_file_name):
+def plot_metrics(log_file_name, model_name_to_consider, plot_file_name, reduction_n_components=None):
     full_data = pd.read_csv(log_file_name)
     data = full_data[ full_data['model'] == model_name_to_consider]
+    
+    if reduction_n_components is None:
+        data = data[ data["reduction_n_components"].isna() ]
+    else:
+        data = data[ data["reduction_n_components"] == reduction_n_components ]
+    
     if data.empty:
-        raise ValueError(f"No experiments found for model: {model_name_to_consider}")
+        raise ValueError("No matching experiments found")
 
     grouped = data.groupby('size')
     train_sizes = sorted(data["size"].unique())
@@ -352,6 +361,123 @@ def plot_metrics(log_file_name, model_name_to_consider, plot_file_name):
 
 
 
+def plot_reduction_comparison(
+    log_file_name,
+    model_name,
+    plot_file_name
+):
+    full_data = pd.read_csv(log_file_name)
+
+    data = full_data[
+        full_data["model"] == model_name
+    ].copy()
+
+    if data.empty:
+        raise ValueError(
+            f"No experiments found for {model_name}"
+        )
+
+    data["reduction_label"] = (
+        data["reduction_n_components"]
+        .apply(
+            lambda x: "Baseline"
+            if pd.isna(x)
+            else f"{int(x)} components"
+        )
+    )
+
+    metrics = {
+        "accuracy": "Accuracy",
+        "precision": "Precision",
+        "recall": "Recall",
+        "f1": "F1-score"
+    }
+
+    fig, axes = plt.subplots(
+        2, 2,
+        figsize=(13, 9),
+        sharex=True,
+        sharey=True
+    )
+
+    reduction_order = [
+        "Baseline",
+        "8 components",
+        "12 components",
+        "16 components"
+    ]
+
+    for ax, (metric, title) in zip(
+        axes.flat, metrics.items()
+    ):
+        for reduction in reduction_order:
+            subset = data[
+                data["reduction_label"] == reduction
+            ]
+
+            if subset.empty:
+                continue
+
+            grouped = subset.groupby("size")[metric]
+            means = grouped.mean().sort_index()
+            stds = grouped.std().reindex(
+                means.index
+            ).fillna(0)
+
+            ax.plot(
+                means.index,
+                means,
+                marker="o",
+                linewidth=2,
+                label=reduction
+            )
+
+            ax.fill_between(
+                means.index,
+                means - stds,
+                means + stds,
+                alpha=0.12
+            )
+
+        ax.set_title(title)
+        ax.set_xlabel("Training sample size")
+        ax.set_ylabel("Metric value")
+        ax.grid(
+            True,
+            linestyle="--",
+            alpha=0.5
+        )
+
+    handles, labels = axes.flat[0].get_legend_handles_labels()
+
+    fig.legend(
+        handles,
+        labels,
+        loc="upper center",
+        ncol=4,
+        bbox_to_anchor=(0.5, 1.01)
+    )
+
+    fig.suptitle(
+        f"{model_name}: dimensionality reduction comparison",
+        y=1.06
+    )
+
+    fig.tight_layout()
+
+    fig.savefig(
+        plot_file_name,
+        dpi=300,
+        bbox_inches="tight"
+    )
+
+    plt.close(fig)
+
+
+
+
+
+
 def encode_data(texts, emb_model):
     X_emb = emb_model.encode(
         texts.tolist(),
@@ -362,38 +488,69 @@ def encode_data(texts, emb_model):
     return X_emb
 
 
-def train_embedding_svm(emb_X_train, y_train):
-    model = SVC(
-        kernel = KERNEL, 
-        C = C, 
-        gamma = GAMMA
+def train_embedding_svm(emb_X_train, y_train, pca_num_components):
+    steps = []
+    if pca_num_components is not None:
+        steps.append(
+            (
+                "compression",
+                PCA(n_components = pca_num_components, svd_solver="full")
+            )
+        )
+        
+    steps.append(
+        (
+            "SVC",
+            SVC(
+                kernel = KERNEL, 
+                C = C, 
+                gamma = GAMMA
+            )
+        )
     )
+    model = Pipeline(steps)
     model.fit(emb_X_train, y_train)
     return model
 
 
 
-def train_tfidf_svm(X_train, y_train):
-    model = Pipeline([
-    (
-        "vectorizer",
-        TfidfVectorizer(
-            lowercase=True,
-            stop_words = "english",
-            ngram_range = (1,2),
-            max_features = MAX_FEATURES,
-            sublinear_tf = True
+def train_tfidf_svm(X_train, y_train, svd_num_components):
+    steps = []
+
+    steps.append(
+        (
+            "vectorizer",
+            TfidfVectorizer(
+                lowercase=True,
+                stop_words = "english",
+                ngram_range = (1,2),
+                max_features = MAX_FEATURES,
+                sublinear_tf = True
+            )
         )
-    ),
-    (
-        "method",
-        SVC(
-            kernel=KERNEL,   
-            C=C,
-            gamma=GAMMA
+        
+    )
+
+    if svd_num_components is not None:
+        steps.append(
+            (
+                "compression",
+                TruncatedSVD(n_components = svd_num_components, algorithm = "randomized", random_state = 42)
+            )    
+        )
+        
+    steps.append(
+        (
+            "method",
+            SVC(
+                kernel=KERNEL,   
+                C=C,
+                gamma=GAMMA
+            )
         )
     )
-    ])
+    
+    model = Pipeline(steps)
     model.fit(X_train, y_train)
     return model
 
@@ -408,7 +565,7 @@ def set_seed(seed):
 
 
 
-def do_svm_experiments(vectorizer_type, emb_model=None):
+def do_svm_experiments(vectorizer_type, emb_model=None, reduction_n_components=None):
     print(f'----SVM-{vectorizer_type} experiments----')
     test_texts, test_labels = load_split(os.path.join(SPLIT_FOLDER_PATH, TEST_SPLIT_FILE))
     report_model_name = f'SVM_{vectorizer_type}'
@@ -435,12 +592,12 @@ def do_svm_experiments(vectorizer_type, emb_model=None):
             if vectorizer_type == 'embeddings':
                 emb_texts_train = encode_data(train_texts, emb_model)
                 emb_texts_test = encode_data(test_texts, emb_model)
-                model = train_embedding_svm(emb_texts_train, train_labels)
+                model = train_embedding_svm(emb_texts_train, train_labels, reduction_n_components)
                 report_dict = evaluate_svm_model(emb_texts_test, test_labels, model)
                 print(report_dict)
 
             elif vectorizer_type == 'tf-idf':
-                model = train_tfidf_svm(train_texts, train_labels)
+                model = train_tfidf_svm(train_texts, train_labels, reduction_n_components)
                 report_dict = evaluate_svm_model(test_texts, test_labels, model)
                 print(report_dict)
             else:
@@ -460,10 +617,9 @@ def do_svm_experiments(vectorizer_type, emb_model=None):
                 kernel = KERNEL, 
                 c = C, 
                 gamma = GAMMA, 
+                reduction_n_components = reduction_n_components,
                 metrics_dict = report_dict, 
             )    
-
-    plot_metrics(LOG_FILE_NAME, report_model_name, f'SVM_{vectorizer_type}_plot.png')
 
 
 
@@ -515,10 +671,10 @@ def do_transformer_experiments():
                 kernel = '-', 
                 c = '-', 
                 gamma = '-', 
+                reduction_n_components = None,
                 metrics_dict = report_dict, 
             )   
 
-    plot_metrics(LOG_FILE_NAME, MODEL_NAME, 'bert_plot.png')
 
 
 
@@ -546,16 +702,16 @@ def do_full_transformer_experiments():
         seed_folder_name = 'none',
         train_slice = 'FULL TRAINING', 
         size = len(train_dataset), 
-        model_name = MODEL_NAME, 
+        model_name = f'FULL_{MODEL_NAME}', 
         lr = LEARNING_RATE, 
         batch_size = BATCH_SIZE, 
         kernel = '-', 
         c = '-', 
         gamma = '-', 
+        reduction_n_components = None,
         metrics_dict = report_dict, 
     )   
 
-    plot_metrics(LOG_FILE_NAME, MODEL_NAME, 'full_trained_bert_plot.png')
 
 
 
