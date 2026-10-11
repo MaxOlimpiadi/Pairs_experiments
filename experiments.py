@@ -306,9 +306,9 @@ def plot_metrics(log_file_name, model_name_to_consider, plot_file_name, reductio
     data = full_data[ full_data['model'] == model_name_to_consider]
     
     if reduction_n_components is None:
-        data = data[ data["reduction_n_components"].isna() ]
+        data = data[ data["reduction_components"].isna() ]
     else:
-        data = data[ data["reduction_n_components"] == reduction_n_components ]
+        data = data[ data["reduction_components"] == reduction_n_components ]
     
     if data.empty:
         raise ValueError("No matching experiments found")
@@ -378,7 +378,7 @@ def plot_reduction_comparison(
         )
 
     data["reduction_label"] = (
-        data["reduction_n_components"]
+        data["reduction_components"]
         .apply(
             lambda x: "Baseline"
             if pd.isna(x)
