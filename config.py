@@ -1,5 +1,5 @@
 import os
-
+from transformers import pipeline
 
 # Folders, files routes:
 DATA_FOLDER = 'data'
@@ -40,6 +40,25 @@ KERNEL = 'rbf'
 C = 1.0
 GAMMA = 'scale'
 MAX_FEATURES = 1000
+
+
+# Topic params:
+TOPICS = [
+    "politics",
+    "economy",
+    "technology",
+    "health",
+    "sports",
+    "entertainment",
+    "food",
+    "animals",
+    "religion"
+]
+
+topic_classifier = pipeline(
+    "zero-shot-classification",
+    model = "facebook/bart-large-mnli"
+)  
 
 # Experiment:
 TRAIN_SPLIT_SIZES = (25, 50, 100, 200, 300, 500, 700, 900, 1100, 1300, 1500, 1750, 2000)

@@ -1,6 +1,9 @@
 split/*
 best_model.pth
 test/*
+comments.docx
+~$mments.docx
+small_df_topics.csv
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
